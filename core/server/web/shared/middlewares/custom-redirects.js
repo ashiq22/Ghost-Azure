@@ -1,3 +1,4 @@
+@ -1,32 +1,32 @@
 const express = require('../../../../shared/express');
 const url = require('url');
 const querystring = require('querystring');
@@ -24,73 +25,29 @@ let customRedirectsRouter;
  *
  * @returns {Object} instance of express.Router express router handling redirects based on config
  */
+_private.registerRoutes = (redirects) => {
 _private.registerRoutes = (router, redirects) => {
     debug('redirects loading');
+
+    const redirectsRouter = express.Router('redirects');
 
     if (labsService.isSet('offers')) {
         redirects.unshift({
             from: '/zimo50',
-            to: '/#/portal/offers/abcdefuckoff'
-        });
-    }
-
-    redirects.forEach((redirect) => {
-        /**
-         * Detect case insensitive modifier when regex is enclosed by
-         * / ... /i
-         */
-        let options = '';
-        if (redirect.from.match(/^\/.*\/i$/)) {
-            redirect.from = redirect.from.slice(1, -2);
-            options = 'i';
-        }
-
-        /**
-         * always delete trailing slashes, doesn't matter if regex or not
-         * Example:
-         *   - you define /my-blog-post-1/ as from property
-         *   - /my-blog-post-1 or /my-blog-post-1/ should work
-         */
-
-        if (redirect.from.match(/\/$/)) {
-            redirect.from = redirect.from.slice(0, -1);
-        }
-
-        if (redirect.from[redirect.from.length - 1] !== '$') {
-            redirect.from += '/?$';
+@ -61,7 +61,7 @@ _private.registerRoutes = (redirects) => {
         }
 
         debug('register', redirect.from);
+        redirectsRouter.get(new RegExp(redirect.from, options), function (req, res) {
         router.get(new RegExp(redirect.from, options), function (req, res) {
             const maxAge = redirect.permanent ? config.get('caching:customRedirects:maxAge') : 0;
             const toURL = url.parse(redirect.to);
             const toURLParams = querystring.parse(toURL.query);
-            const currentURL = url.parse(req.url);
-            const currentURLParams = querystring.parse(currentURL.query);
-            const params = Object.assign({}, currentURLParams, toURLParams);
-            const search = querystring.stringify(params);
-
-            toURL.pathname = currentURL.pathname.replace(new RegExp(redirect.from, options), toURL.pathname);
-            toURL.search = search !== '' ? `?${search}` : null;
-
-            /**
-             * Only if the URL is internal should we prepend the Ghost subdirectory
-             * @see https://github.com/TryGhost/Ghost/issues/10776
-             */
-            if (!toURL.hostname) {
-                toURL.pathname = urlUtils.urlJoin(urlUtils.getSubdir(), toURL.pathname);
-            }
-
-            res.set({
-                'Cache-Control': `public, max-age=${maxAge}`
-            });
-
-            res.redirect(redirect.permanent ? 301 : 302, url.format(toURL));
-        });
-    });
+@ -91,36 +91,37 @@
 
     debug('redirects loaded');
 
+    return redirectsRouter;
     return router;
 };
 
@@ -101,6 +58,8 @@ const loadRoutes = () => {
         const redirects = redirectsService.loadRedirectsFile();
         redirectsService.validate(redirects);
 
+        const redirectsRouter = _private.registerRoutes(redirects);
+        customRedirectsRouter = redirectsRouter;
         _private.registerRoutes(customRedirectsRouter, redirects);
     } catch (err) {
         if (errors.utils.isIgnitionError(err)) {
@@ -125,12 +84,3 @@ exports.use = function use(siteApp) {
     loadRoutes();
 
     // Recommended approach by express, see https://github.com/expressjs/express/issues/2596#issuecomment-81353034.
-    // As soon as the express router get's re-instantiated, the old router instance is not used anymore.
-    siteApp.use(function customRedirect(req, res, next) {
-        customRedirectsRouter(req, res, next);
-    });
-};
-
-exports.reload = function reload() {
-    loadRoutes();
-};
