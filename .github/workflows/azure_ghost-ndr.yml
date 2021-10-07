@@ -53,5 +53,5 @@ jobs:
         with:
           app-name: 'Ghost-ndr'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_19C70D45E2B34F009D658B504BF04E39 }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_53863AC5E4CE433CA467E9D67572DC8F }}
           package: .
